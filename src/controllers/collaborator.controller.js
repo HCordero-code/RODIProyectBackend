@@ -273,3 +273,97 @@ export const getMissionHistory = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const submitEvidenceByUrl = async (req, res) => {
+  try {
+    const { missionId, capturedLat, capturedLng, durationSec, videoUrl, cloudinaryPublicId } = req.body;
+ 
+    if (!missionId || !capturedLat || !capturedLng || !durationSec || !videoUrl) {
+      return badRequestResponse(res, 'Faltan campos requeridos');
+    }
+ 
+    const collaborator = await Collaborator.findOne({ userId: req.user.id });
+    if (!collaborator) return notFoundResponse(res, 'Colaborador');
+ 
+    const mission = await Mission.findOne({ id: missionId });
+    if (!mission) return notFoundResponse(res, 'Misión');
+ 
+    const assignment = await MissionAssignment.findOne({
+      missionId: mission._id,
+      collaboratorProfileId: collaborator._id,
+      status: 'IN_PROGRESS'
+    });
+    if (!assignment) return badRequestResponse(res, 'No tienes una misión activa con este ID');
+ 
+    const distance = calculateDistance(
+      parseFloat(capturedLat),
+      parseFloat(capturedLng),
+      mission.lat,
+      mission.lng
+    );
+ 
+    // ✅ Crear evidencia con URL de Cloudinary
+    const evidence = new Evidence({
+      missionId: mission._id,
+      videoUrl,
+      videoExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      durationSec: parseInt(durationSec),
+      capturedLat: parseFloat(capturedLat),
+      capturedLng: parseFloat(capturedLng),
+      status: 'PENDING',
+      isWithinRadius: distance <= mission.searchRadiusKm,
+      distanceFromTargetM: distance * 1000
+    });
+    await evidence.save();
+ 
+    // ✅ Crear TempVideo con datos de Cloudinary
+    const TempVideo = (await import('../models/TempVideo.model.js')).default;
+    const tempVideo = new TempVideo({
+      missionId: mission._id,
+      evidenceId: evidence._id,
+      filename: cloudinaryPublicId || `evidence_${missionId}`,
+      originalName: `evidence_${missionId}.mp4`,
+      fileSize: 0,
+      mimeType: 'video/mp4',
+      cloudinaryPublicId: cloudinaryPublicId || null,
+      cloudinaryUrl: videoUrl,
+      duration: parseInt(durationSec),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+    });
+    await tempVideo.save();
+ 
+    // ✅ Actualizar asignación
+    assignment.status = 'COMPLETED';
+    assignment.completedAt = new Date();
+    await assignment.save();
+ 
+    // ✅ Actualizar estadísticas del colaborador
+    collaborator.totalMissionsCompleted += 1;
+    collaborator.totalEarned += mission.rewardAmount;
+    await collaborator.save();
+ 
+    // ✅ Notificar a la empresa
+    const notification = new Notification({
+      userId: mission.companyId,
+      missionId: mission._id,
+      type: 'MISSION_COMPLETED',
+      title: 'Misión completada',
+      body: `Se ha recibido evidencia para: ${mission.title}`
+    });
+    await notification.save();
+ 
+    return successResponse(res, {
+      evidence,
+      videoUrl,
+      validation: {
+        isWithinRadius: distance <= mission.searchRadiusKm,
+        distanceFromTargetM: (distance * 1000).toFixed(2),
+        requiredRadiusKm: mission.searchRadiusKm
+      }
+    }, 'Evidencia enviada exitosamente', 201);
+ 
+  } catch (error) {
+    console.error('❌ Error en submitEvidenceByUrl:', error);
+    return errorResponse(res, error.message);
+  }
+};

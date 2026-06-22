@@ -10,6 +10,7 @@ import {
     acceptMission,
     startMission,
     submitEvidence,
+    submitEvidenceByUrl,   // ✅ NUEVA IMPORTACIÓN
     getCurrentMission,
     getMissionHistory
 } from '../controllers/collaborator.controller.js';
@@ -19,10 +20,7 @@ const router = express.Router();
 // ✅ Multer con memory storage (sin guardar en disco, compatible con Vercel)
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { 
-        fileSize: 50 * 1024 * 1024, // 50MB
-        fieldSize: 50 * 1024 * 1024
-    },
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
     fileFilter: (req, file, cb) => {
         const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
         if (allowedTypes.includes(file.mimetype)) {
@@ -47,7 +45,10 @@ router.post('/missions/:missionId/start', startMission);
 router.get('/missions/current', getCurrentMission);
 router.get('/missions/history', getMissionHistory);
 
-// ✅ Evidencia - con multer memory storage
-router.post('/evidence', validateToken, upload.single('video'), submitEvidence);
+// ✅ Evidencia por archivo (multer) - para desktop
+router.post('/evidence', upload.single('video'), submitEvidence);
+
+// ✅ Evidencia por URL (Cloudinary directo) - para móvil
+router.post('/evidence/url', submitEvidenceByUrl);
 
 export default router;
