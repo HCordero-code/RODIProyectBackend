@@ -19,7 +19,10 @@ const router = express.Router();
 // ✅ Multer con memory storage (sin guardar en disco, compatible con Vercel)
 const upload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+    limits: { 
+        fileSize: 50 * 1024 * 1024, // 50MB
+        fieldSize: 50 * 1024 * 1024
+    },
     fileFilter: (req, file, cb) => {
         const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime', 'video/x-msvideo'];
         if (allowedTypes.includes(file.mimetype)) {
@@ -45,6 +48,6 @@ router.get('/missions/current', getCurrentMission);
 router.get('/missions/history', getMissionHistory);
 
 // ✅ Evidencia - con multer memory storage
-router.post('/evidence', upload.single('video'), submitEvidence);
+router.post('/evidence', validateToken, upload.single('video'), submitEvidence);
 
 export default router;
