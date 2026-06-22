@@ -113,14 +113,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 // ✅ Routes
-app.use('/api/v1/auth',(req, res ) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'development'
-  });
-});
+app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/collaborator', collaboratorRoutes);
 app.use('/api/v1/company', companyRoutes);
