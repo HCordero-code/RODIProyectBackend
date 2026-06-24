@@ -68,7 +68,7 @@ const app = express();
 // ✅ Configuración de CORS
 const allowedOrigins = [
   'https://rodi-proyect-cwcg.vercel.app',
-  'http://localhost:300',
+  'http://localhost:3000',
   'http://localhost:3050',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3001',
